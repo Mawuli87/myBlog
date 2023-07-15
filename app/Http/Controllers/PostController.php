@@ -1,35 +1,37 @@
 <?php
 
 namespace App\Http\Controllers;
-
-use App\Http\Controllers\Controller;
-use App\Models\Comment;
 use App\Models\Post;
-use Exception;
+use App\Models\Comment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class PostController extends Controller
 {
-   
-    public function __construct()
-    {
-        $this->middleware('auth')->except(['index','show']);
-    }
 
-    public function dashboard() {
-        $authUser = Auth::user();
-         $myPosts = $authUser->posts;
-         return view('post.dashboard', compact('myPosts'));
+    function __construct()
+    {
+           $this->middleware('auth')->except(['index', 'show']);
     }
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+
+     public function dashboard() {
+         $authUser = Auth::user();
+         $myPosts = $authUser->posts()->paginate(4);
+         return view('post.dashboard', compact('myPosts'));
+     }
 
 
     public function index()
     {
-        //
-        $posts = Post::orderBy('id','desc')->paginate(4);
-        return view('post.index',compact('posts'));
+            $posts = Post::orderBy('id', 'desc')->paginate(4);
+        return view('post.index', compact('posts'));
     }
 
     /**
@@ -39,7 +41,6 @@ class PostController extends Controller
      */
     public function create()
     {
-        //
         return view('post.create');
     }
 
@@ -52,22 +53,34 @@ class PostController extends Controller
     public function store(Request $request)
     {
        $request->validate([
-        'title'=> ['required','min:3','max:20'],
-        'content' => ['required','min:5','max:200']
+              'title' => ['required', 'min:3', 'max:20'],
+              'content' => ['required', 'min:5'],
+              'file' => ['required','image','mimes:png,jpg','max:1024'],
+              //'file' => [ 'required', 'mimes:pdf', 'max:1024']
        ]);
 
-    
        try {
 
-        Post::create([
-            'title'=> $request->input('title'),
-            'content'=> $request -> input('content'),
-            'user_id'=>Auth::id(),
-          ]);
-            return redirect()->route('post.index')->with('msg','Post has been Created Successfuly');
-       }catch(Exception $e){
-          return redirect()->back()->with('msg','Post not saved');
-       }
+        //store the image in the storage
+        if($request->hasFile('file')) {
+          $image = $request->file('file');
+          $imageName = $image->getClientOriginalName();
+          Storage::disk('public')->putFileAs('images', $image, $imageName);
+
+         Post::create([
+             'title' => $request->input('title'),
+             'content' => $request->input('content'),
+             'user_id' => Auth::id(),
+             'file' => $imageName,
+         ]);
+
+         return redirect()->route('post.index')->with('msg', 'post has beed created successfully');
+        }
+
+         } catch(\Exception $e) {
+             return redirect()->back()->with('msg', 'post not added');
+         }
+
 
     }
 
@@ -79,10 +92,14 @@ class PostController extends Controller
      */
     public function show($id)
     {
-        $post = Post::find($id);
-        $comments = Comment::where('post_id' , $id)->get();
-        //return view('post.show', compact('post'));
-        return view('post.show', compact(['post', 'comments']));
+         $post = Post::find($id);
+        $comments = Cache::remember('post-comments', 60 , function () use($id) {
+            return  Comment::where('post_id' , $id)->get();
+        });
+
+
+
+         return view('post.show', compact(['post', 'comments']));
     }
 
     /**
@@ -108,22 +125,38 @@ class PostController extends Controller
     {
         $request->validate([
             'title' => ['required', 'min:3', 'max:20'],
-            'content' => ['required', 'min:5']
+            'content' => ['required', 'min:5'],
      ]);
 
      try {
-
         $myPost = Post::find($id);
+
+        if($request->hasFile('file')) {
+         if(is_file(public_path().'/storage/images/'.$myPost->file)) {
+            unlink(public_path().'/storage/images/'.$myPost->file);
+          }
+            $image = $request->file('file');
+            $imageName = $image->getClientOriginalName();
+            Storage::disk('public')->putFileAs('images', $image, $imageName);
+
 
        $myPost->update([
            'title' => $request->input('title'),
            'content' => $request->input('content'),
            'user_id' => Auth::id(),
+           'file' => $imageName,
        ]);
 
        return redirect()->route('post.index')->with('msg', 'post has beed updated successfully');
+    } else {
+        $myPost->update([
+            'title' => $request->input('title'),
+            'content' => $request->input('content'),
+            'user_id' => Auth::id(),
 
-       } catch(Exception $e) {
+        ]);
+    }
+       } catch(\Exception $e) {
            return redirect()->back()->with('msg', 'post not updated');
        }
 
@@ -137,19 +170,22 @@ class PostController extends Controller
      */
     public function destroy(Post $post)
     {
-        try {
-            $owner = $post->user->id;
-            $authUser = Auth::id();
+         try {
+             $owner = $post->user->id;
+             $authUser = Auth::id();
 
-            if($owner == $authUser) {
-                    $post->delete();
-                    return redirect()->back()->with('msg', 'post has been deleted successfully');
-            } else {
-               return redirect()->back()->with('msg', 'it is not your post');
-            }
+             if($owner == $authUser) {
+          if(is_file(public_path().'/storage/images/'.$post->file)) {
+            unlink(public_path().'/storage/images/'.$post->file);
+                     $post->delete();
+                     return redirect()->back()->with('msg', 'post has been deleted successfully');
+          }
+             } else {
+                return redirect()->back()->with('msg', 'it is not your post');
+             }
 
-        } catch(\Exception $e) {
-           return redirect()->back()->with('msg', 'post not deleted');
-        }
+         } catch(\Exception $e) {
+            return redirect()->back()->with('msg', 'post not deleted');
+         }
     }
 }

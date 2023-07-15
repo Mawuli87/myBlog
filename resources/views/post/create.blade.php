@@ -10,11 +10,11 @@
 <div class="container">
    <div class="row">
 
-    <form action="{{ route('post.store') }}" method="post">
+    <form action="{{ route('post.store') }}" method="post" enctype="multipart/form-data">
          @csrf
         <div class="form-group">
           <label for="exampleFormControlInput1">Title</label>
-          <input type="text" name="title" class="form-control" id="exampleFormControlInput1" placeholder="name@example.com">
+          <input type="text" name="title" class="form-control" id="exampleFormControlInput1" placeholder="">
           <span>@error('title') {{ $message }} @enderror</span>
         </div>
         <div class="form-group">
@@ -22,9 +22,18 @@
           <textarea class="form-control" name="content" id="exampleFormControlTextarea1" rows="3"></textarea>
           <span>@error('content') {{ $message }} @enderror</span>
         </div>
+
+        @csrf
+        <div class="form-group">
+          <label for="exampleFormControlInput1">File</label>
+          <input type="file" name="file" class="form-control" id="exampleFormControlInput1" placeholder="name@example.com">
+          <span>@error('file') {{ $message }} @enderror</span>
+        </div>
          <br/>
         <input type="submit" class="btn btn-primary" value="Post">
       </form>
+
+     
 
    </div>
 </div>

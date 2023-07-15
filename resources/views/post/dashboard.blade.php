@@ -39,7 +39,7 @@
       @endforeach
     </tbody>
   </table>
- {{-- <div>{{ $myPosts->links() }}</div> --}}
+ <div>{{ $myPosts->links() }}</div>
 </div>
 
 @endsection

@@ -11,7 +11,7 @@
 
 <div class="container">
     <div class="row">
-        <form action="{{ route('post.update', $post->id) }}" method="post">
+        <form action="{{ route('post.update', $post->id) }}" method="post" enctype="multipart/form-data">
             @csrf
             @method('PUT')
             <div class="form-group">
@@ -27,6 +27,15 @@
               </textarea>
               <span>@error('content') {{ $message }} @enderror</span>
             </div>
+
+            <div class="form-group">
+              <label for="exampleFormControlInput1">Image</label>
+              <input type="file" name="file" class="form-control" id="exampleFormControlInput1"
+               value="{{url('/storage/images/'.$post->file) }}">
+              <span>@error('file') {{ $message }} @enderror</span>
+              <img src="{{ url('/storage/images/'.$post->file) }}" alt="Card image cap" height="100" width="100">
+            </div>
+            
             <br>
             <input type="submit" class="btn btn-primary" value="Update">
           </form>
